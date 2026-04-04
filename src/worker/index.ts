@@ -26,7 +26,8 @@ async function processMessage(projectId: string, streamId: string, msg: WTMessag
   processing.add(lockKey);
 
   try {
-    console.log(`[Worker] Processing message for "${projectId}" from "${msg.from}" — conv: ${msg.conversationId}, round: ${msg.round}, type: ${msg.type}`);
+    const logPrefix = `[Worker][${msg.conversationId.slice(-8)}]`;
+    console.log(`${logPrefix} R${msg.round}: ${msg.from} → ${projectId} (${msg.type})`);
 
     // Get conversation
     const convRaw = await redis.hget(REDIS_KEYS.conversations, msg.conversationId);
@@ -55,10 +56,9 @@ async function processMessage(projectId: string, streamId: string, msg: WTMessag
     // Build prompt for Claude
     const prompt = buildPrompt(msg, conv, projectId);
 
-    // Spawn Claude in the project directory
-    console.log(`[Worker] Spawning claude -p in "${project.path}"...`);
+    console.log(`${logPrefix} Spawning claude -p in "${project.path}"...`);
     const response = await spawnClaude(project.path, prompt);
-    console.log(`[Worker] Claude responded (${response.length} chars)`);
+    console.log(`${logPrefix} Claude responded (${response.length} chars), type: ${detectResponseType(response)}`);
 
     // Determine response type
     const responseType = detectResponseType(response);
@@ -84,13 +84,13 @@ async function processMessage(projectId: string, streamId: string, msg: WTMessag
     if (['agreement', 'blocked', 'delivered'].includes(responseType)) {
       conv.status = 'completed';
       conv.endType = responseType as any;
-      console.log(`[Worker] Conversation ended: ${responseType}`);
+      console.log(`${logPrefix} ✅ Conversation ended: ${responseType}`);
     }
 
     await redis.hset(REDIS_KEYS.conversations, msg.conversationId, JSON.stringify(conv));
     await redis.xadd(REDIS_KEYS.stream(msg.from), '*', 'message', JSON.stringify(responseMsg));
 
-    console.log(`[Worker] Response sent to "${msg.from}" — round ${conv.currentRound}/${conv.maxRounds}`);
+    console.log(`${logPrefix} → Sent to "${msg.from}" (R${conv.currentRound}/${conv.maxRounds})`);
   } catch (err) {
     console.error(`[Worker] Error processing message:`, err);
   } finally {
@@ -99,30 +99,35 @@ async function processMessage(projectId: string, streamId: string, msg: WTMessag
 }
 
 function buildPrompt(msg: WTMessage, conv: WTConversation, myProjectId: string): string {
-  return `You are participating in an inter-project conversation via WalkieTalkie.
+  return `Você está participando de uma conversa inter-projeto via WalkieTalkie.
+IMPORTANTE: Responda SEMPRE em português brasileiro.
 
-## Context
-- **Your project:** ${myProjectId}
-- **Conversation with:** ${msg.from}
-- **Subject:** ${conv.subject}
-- **Round:** ${conv.currentRound + 1} of ${conv.maxRounds}
-- **Message type received:** ${msg.type}
+## Contexto
+- **Seu projeto:** ${myProjectId}
+- **Conversando com:** ${msg.from}
+- **Assunto:** ${conv.subject}
+- **Round:** ${conv.currentRound + 1} de ${conv.maxRounds}
+- **Tipo da mensagem recebida:** ${msg.type}
 
-## Message from "${msg.from}":
+## Mensagem de "${msg.from}":
 ${msg.body}
 
-## Instructions
-- Respond to the message above in the context of this project.
-- Be concise and technical. Focus on actionable decisions.
-- If you need information from your project's codebase, read the relevant files first.
-- If you have enough information to agree on a design/contract, state it clearly.
+## Instruções
+- Responda à mensagem acima no contexto deste projeto.
+- Seja conciso e técnico. Foque em decisões acionáveis.
+- Se precisar de informação do codebase do seu projeto, leia os arquivos relevantes primeiro.
+- Se tiver informação suficiente para fechar um acordo/contrato de design, declare claramente.
+- Considere a infraestrutura já disponível: Docker, Redis, Tailscale, N8N, LiteLLM, Evolution API (WhatsApp), Discord Bot, Outline wiki.
+- Priorize reuso de soluções existentes — pesquise no GitHub e no codebase antes de propor algo novo.
+- Toda decisão deve ser documentada: atualize docs/context/ do seu projeto com o que foi acordado.
+- SEMPRE responda em português brasileiro.
 
-## Response format
-- Start with your response content directly.
-- If you want to end the conversation with an agreement, start your response with: [AGREEMENT]
-- If you're blocked and need human intervention, start with: [BLOCKED]
-- If you're delivering a result, start with: [DELIVERY]
-- Otherwise, just respond normally (the conversation continues).`;
+## Formato da resposta
+- Comece diretamente com o conteúdo da resposta.
+- Se quiser encerrar a conversa com um acordo, comece com: [AGREEMENT]
+- Se estiver bloqueado e precisar de intervenção humana, comece com: [BLOCKED]
+- Se estiver entregando um resultado, comece com: [DELIVERY]
+- Caso contrário, responda normalmente (a conversa continua).`;
 }
 
 function detectResponseType(response: string): WTMessage['type'] {

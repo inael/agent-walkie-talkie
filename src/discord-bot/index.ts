@@ -83,20 +83,27 @@ function formatMessage(msg: WTMessage, conv: WTConversation): string {
   return text;
 }
 
+let discordPollCount = 0;
 async function pollAllStreams(): Promise<void> {
+  discordPollCount++;
   let channel = client.channels.cache.get(CHANNEL_ID!) as TextChannel;
   if (!channel) {
     try {
       channel = await client.channels.fetch(CHANNEL_ID!) as TextChannel;
-    } catch {
+    } catch (err: any) {
+      if (discordPollCount % 30 === 0) console.error(`[Discord] Cannot fetch channel: ${err.message}`);
       return;
     }
   }
-  if (!channel) return;
+  if (!channel) {
+    if (discordPollCount % 30 === 0) console.log('[Discord] Channel not found');
+    return;
+  }
 
   // Get all registered projects
   const projects = await redis.hgetall(REDIS_KEYS.projects);
   const projectIds = Object.keys(projects);
+  if (discordPollCount % 30 === 0) console.log(`[Discord] Heartbeat — poll ${discordPollCount}, ${projectIds.length} projects`);
 
   for (const projectId of projectIds) {
     const streamKey = REDIS_KEYS.stream(projectId);
@@ -113,6 +120,7 @@ async function pollAllStreams(): Promise<void> {
       ) as any;
 
       if (!results || results.length === 0) continue;
+      console.log(`[Discord] Found messages in stream for "${projectId}"`);
 
       for (const [, entries] of results) {
         for (const [streamId, fields] of entries) {
