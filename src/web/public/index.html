@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WalkieTalkie — Agent Communication</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <h1>📻 WalkieTalkie</h1>
+      <p class="subtitle">Agent-to-Agent Communication</p>
+      <div class="section-title">Conversations</div>
+      <div id="conv-list" class="conv-list"></div>
+      <div class="section-title">Projects</div>
+      <div id="project-list" class="project-list"></div>
+    </aside>
+    <main class="chat-area">
+      <div id="chat-header" class="chat-header">
+        <span>Select a conversation</span>
+      </div>
+      <div id="messages" class="messages"></div>
+      <div id="controls" class="controls hidden">
+        <button id="btn-pause" onclick="pauseConv()">⛔ Pause</button>
+        <button id="btn-resume" onclick="resumeConv()" class="hidden">▶️ Resume</button>
+        <button id="btn-add-rounds" onclick="addRounds()">➕ +5 Rounds</button>
+      </div>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

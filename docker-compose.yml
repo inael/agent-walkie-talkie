@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: npm run worker
+    environment:
+      - REDIS_URL=redis://host.docker.internal:6379
+      - CLAUDE_CLI_PATH=claude
+      - ROUND_TIMEOUT_MS=300000
+    volumes:
+      - /c/Users/inael-pc/Documents/ClaudeCode:/projects:ro
+    restart: unless-stopped
+
+  discord-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: npm run discord
+    environment:
+      - REDIS_URL=redis://host.docker.internal:6379
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+      - DISCORD_CHANNEL_ID=${DISCORD_CHANNEL_ID}
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: npm run web
+    ports:
+      - "3210:3210"
+    environment:
+      - REDIS_URL=redis://host.docker.internal:6379
+      - WEB_PORT=3210
+    restart: unless-stopped
