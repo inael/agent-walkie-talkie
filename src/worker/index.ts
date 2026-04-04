@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { getRedis, ensureStream } from '../shared/redis.js';
 import { REDIS_KEYS, type WTMessage, type WTConversation, type WTProject } from '../shared/types.js';
 import { spawnClaude } from './claude-runner.js';

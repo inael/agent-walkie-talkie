@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { Client, GatewayIntentBits, TextChannel, ThreadAutoArchiveDuration, MessageReaction, User } from 'discord.js';
 import { getRedis, ensureStream } from '../shared/redis.js';
 import { REDIS_KEYS, type WTMessage, type WTConversation } from '../shared/types.js';
@@ -176,7 +177,7 @@ client.on('messageReactionAdd', async (reaction: MessageReaction | any, user: Us
   }
 });
 
-client.on('ready', () => {
+client.on('clientReady', () => {
   console.log(`[Discord] Bot logged in as ${client.user?.tag}`);
   console.log(`[Discord] Watching channel: ${CHANNEL_ID}`);
 
