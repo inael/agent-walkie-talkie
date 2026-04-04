@@ -19,11 +19,14 @@ async function getRegisteredProjects(): Promise<WTProject[]> {
 
 async function processMessage(projectId: string, streamId: string, msg: WTMessage): Promise<void> {
   const lockKey = `${msg.conversationId}:${msg.round}`;
-  if (processing.has(lockKey)) return;
+  if (processing.has(lockKey)) {
+    console.log(`[Worker] Skipping duplicate: ${lockKey}`);
+    return;
+  }
   processing.add(lockKey);
 
   try {
-    console.log(`[Worker] Processing message for "${projectId}" — conv: ${msg.conversationId}, round: ${msg.round}`);
+    console.log(`[Worker] Processing message for "${projectId}" from "${msg.from}" — conv: ${msg.conversationId}, round: ${msg.round}, type: ${msg.type}`);
 
     // Get conversation
     const convRaw = await redis.hget(REDIS_KEYS.conversations, msg.conversationId);
@@ -148,6 +151,7 @@ async function pollStreams(): Promise<void> {
       ) as any;
 
       if (!results || results.length === 0) continue;
+      console.log(`[Worker] Found messages in stream for "${project.id}"`);
 
       for (const [, entries] of results) {
         for (const [streamId, fields] of entries) {
@@ -170,10 +174,22 @@ async function main(): Promise<void> {
   console.log(`[Worker] Redis: ${REDIS_URL}`);
 
   // Main loop
+  let pollCount = 0;
   while (true) {
-    await pollStreams();
+    try {
+      await pollStreams();
+      pollCount++;
+      if (pollCount % 30 === 0) {
+        console.log(`[Worker] Heartbeat — ${pollCount} polls, still running...`);
+      }
+    } catch (err: any) {
+      console.error(`[Worker] Poll loop error:`, err.message);
+    }
     await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
   }
 }
 
-main().catch(console.error);
+main().catch(err => {
+  console.error('[Worker] Fatal error:', err);
+  process.exit(1);
+});

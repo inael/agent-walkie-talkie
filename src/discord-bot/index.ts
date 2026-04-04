@@ -84,7 +84,14 @@ function formatMessage(msg: WTMessage, conv: WTConversation): string {
 }
 
 async function pollAllStreams(): Promise<void> {
-  const channel = client.channels.cache.get(CHANNEL_ID!) as TextChannel;
+  let channel = client.channels.cache.get(CHANNEL_ID!) as TextChannel;
+  if (!channel) {
+    try {
+      channel = await client.channels.fetch(CHANNEL_ID!) as TextChannel;
+    } catch {
+      return;
+    }
+  }
   if (!channel) return;
 
   // Get all registered projects
@@ -132,9 +139,7 @@ async function pollAllStreams(): Promise<void> {
         }
       }
     } catch (err: any) {
-      if (!err.message?.includes('NOGROUP')) {
-        console.error(`[Discord] Error polling ${projectId}:`, err.message);
-      }
+      console.error(`[Discord] Error polling ${projectId}:`, err.message);
     }
   }
 }
@@ -177,7 +182,7 @@ client.on('messageReactionAdd', async (reaction: MessageReaction | any, user: Us
   }
 });
 
-client.on('clientReady', () => {
+client.on('ready', () => {
   console.log(`[Discord] Bot logged in as ${client.user?.tag}`);
   console.log(`[Discord] Watching channel: ${CHANNEL_ID}`);
 
