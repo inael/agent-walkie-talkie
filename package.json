@@ -1,0 +1,50 @@
+{
+  "name": "agent-walkie-talkie",
+  "version": "0.1.0",
+  "description": "MCP Server for autonomous agent-to-agent communication between Claude Code instances",
+  "main": "dist/mcp-server/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/mcp-server/index.ts",
+    "worker": "tsx src/worker/index.ts",
+    "discord": "tsx src/discord-bot/index.ts",
+    "web": "tsx src/web/server.ts",
+    "start": "concurrently \"npm run worker\" \"npm run discord\" \"npm run web\""
+  },
+  "keywords": [
+    "mcp",
+    "claude",
+    "agent",
+    "communication",
+    "inter-project",
+    "walkie-talkie",
+    "redis",
+    "discord",
+    "ai-agents",
+    "claude-code"
+  ],
+  "author": "Inael <inael@itbooster.com.br>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/inael/agent-walkie-talkie.git"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "discord.js": "^14.16.3",
+    "express": "^4.21.0",
+    "ioredis": "^5.4.1",
+    "uuid": "^10.0.0",
+    "ws": "^8.18.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "@types/uuid": "^10.0.0",
+    "@types/ws": "^8.5.0",
+    "concurrently": "^9.1.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
