@@ -26,7 +26,7 @@ export interface WTConversation {
   participants: [string, string];
   maxRounds: number;
   currentRound: number;
-  status: 'active' | 'paused' | 'completed' | 'blocked';
+  status: 'active' | 'paused' | 'completed' | 'blocked' | 'implementing';
   endType?: 'agreement' | 'blocked' | 'delivered' | 'max-rounds' | 'timeout' | 'ceo-stopped';
   createdAt: string;
   updatedAt: string;

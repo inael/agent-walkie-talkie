@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { getRedis, ensureStream } from '../shared/redis.js';
 import { REDIS_KEYS, type WTMessage, type WTConversation, type WTProject } from '../shared/types.js';
-import { spawnClaude } from './claude-runner.js';
+import { spawnClaude, spawnClaudeImplement } from './claude-runner.js';
 import { checkGuardrails } from './guardrails.js';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
@@ -91,6 +91,11 @@ async function processMessage(projectId: string, streamId: string, msg: WTMessag
     await redis.xadd(REDIS_KEYS.stream(msg.from), '*', 'message', JSON.stringify(responseMsg));
 
     console.log(`${logPrefix} → Sent to "${msg.from}" (R${conv.currentRound}/${conv.maxRounds})`);
+
+    // Post-agreement: trigger implementation on both sides
+    if (conv.status === 'completed' && conv.endType === 'agreement') {
+      await triggerImplementation(conv, msg.conversationId, logPrefix);
+    }
   } catch (err) {
     console.error(`[Worker] Error processing message:`, err);
   } finally {
@@ -136,6 +141,131 @@ function detectResponseType(response: string): WTMessage['type'] {
   if (response.startsWith('[DELIVERY]')) return 'delivery';
   if (response.includes('?')) return 'question';
   return 'answer';
+}
+
+async function collectConversationHistory(convId: string, participants: [string, string]): Promise<WTMessage[]> {
+  const messages: WTMessage[] = [];
+  for (const pid of participants) {
+    const streamKey = REDIS_KEYS.stream(pid);
+    try {
+      const entries = await redis.xrange(streamKey, '-', '+') as any[];
+      for (const [, fields] of entries) {
+        const msg: WTMessage = JSON.parse(fields[1]);
+        if (msg.conversationId === convId) {
+          messages.push(msg);
+        }
+      }
+    } catch { /* stream may not exist */ }
+  }
+  return messages.sort((a, b) => a.round - b.round);
+}
+
+async function triggerImplementation(conv: WTConversation, convId: string, logPrefix: string): Promise<void> {
+  console.log(`${logPrefix} 🚀 Starting post-agreement implementation phase...`);
+
+  // Update status
+  conv.status = 'implementing';
+  conv.updatedAt = new Date().toISOString();
+  await redis.hset(REDIS_KEYS.conversations, convId, JSON.stringify(conv));
+
+  // Collect full conversation history as contract
+  const messages = await collectConversationHistory(convId, conv.participants);
+  const contractText = messages.map(m =>
+    `### Round ${m.round} — ${m.from} (${m.type})\n${m.body}`
+  ).join('\n\n---\n\n');
+
+  // Get both projects
+  const projects: WTProject[] = [];
+  for (const pid of conv.participants) {
+    const raw = await redis.hget(REDIS_KEYS.projects, pid);
+    if (raw) projects.push(JSON.parse(raw));
+  }
+
+  if (projects.length !== 2) {
+    console.error(`${logPrefix} Cannot implement: missing project info`);
+    return;
+  }
+
+  // Implement on both sides in parallel
+  const results = await Promise.allSettled(
+    projects.map(project => implementOnProject(project, conv, contractText, logPrefix))
+  );
+
+  // Update final status
+  const allSuccess = results.every(r => r.status === 'fulfilled');
+  conv.status = 'completed';
+  conv.updatedAt = new Date().toISOString();
+  await redis.hset(REDIS_KEYS.conversations, convId, JSON.stringify(conv));
+
+  // Notify via streams
+  for (const project of projects) {
+    const resultForProject = results[projects.indexOf(project)];
+    const success = resultForProject.status === 'fulfilled';
+    const summary = success
+      ? (resultForProject as PromiseFulfilledResult<string>).value
+      : (resultForProject as PromiseRejectedResult).reason?.message || 'Unknown error';
+
+    const notifyMsg: WTMessage = {
+      id: `msg-impl-${Date.now().toString(36)}`,
+      conversationId: convId,
+      from: 'walkietalkie-system',
+      to: project.id,
+      type: success ? 'delivered' : 'blocked',
+      subject: `Implementação ${success ? 'concluída' : 'falhou'} — ${project.id}`,
+      body: success
+        ? `✅ Implementação concluída no projeto "${project.id}".\n\nResumo:\n${summary}`
+        : `❌ Implementação falhou no projeto "${project.id}".\n\nErro:\n${summary}`,
+      round: conv.currentRound + 1,
+      timestamp: new Date().toISOString(),
+    };
+
+    await redis.xadd(REDIS_KEYS.stream(project.id), '*', 'message', JSON.stringify(notifyMsg));
+  }
+
+  console.log(`${logPrefix} 🏁 Implementation phase finished. Success: ${allSuccess}`);
+}
+
+async function implementOnProject(
+  project: WTProject,
+  conv: WTConversation,
+  contractText: string,
+  logPrefix: string,
+): Promise<string> {
+  console.log(`${logPrefix} 🔧 Implementing on "${project.id}" at ${project.path}...`);
+
+  const otherProject = conv.participants.find(p => p !== project.id) || 'unknown';
+
+  const prompt = `Você é o agente do projeto "${project.id}".
+IMPORTANTE: Responda SEMPRE em português brasileiro.
+
+## Tarefa
+Um acordo de integração foi fechado entre "${project.id}" e "${otherProject}" via WalkieTalkie.
+Agora você deve IMPLEMENTAR o que foi acordado no código deste projeto.
+
+## Contrato completo da conversa
+
+${contractText}
+
+## Instruções de implementação
+1. Leia o contrato acima e identifique O QUE ESTE PROJETO ("${project.id}") precisa fazer.
+2. Leia os arquivos relevantes do codebase antes de modificar qualquer coisa.
+3. Implemente APENAS o que foi acordado para este lado ("${project.id}").
+4. Considere a infraestrutura existente: Docker, Redis, Tailscale, N8N, Evolution API, Discord Bot.
+5. Priorize reuso — não reinvente o que já existe no código.
+6. Faça mudanças pequenas, reversíveis e testáveis.
+7. Atualize docs/context/ com o que foi implementado.
+8. Faça git add + git commit com mensagem descritiva (feat: ...).
+9. Retorne um RESUMO do que foi implementado (arquivos criados/modificados, endpoints, etc).
+
+## Regras
+- NÃO implemente o lado do outro projeto.
+- NÃO faça refactor além do necessário.
+- NÃO crie arquivos de plano — implemente direto.
+- Se algo estiver ambíguo no contrato, escolha a opção mais simples.`;
+
+  const result = await spawnClaudeImplement(project.path, prompt);
+  console.log(`${logPrefix} ✅ "${project.id}" implementation done (${result.length} chars)`);
+  return result;
 }
 
 async function pollStreams(): Promise<void> {
