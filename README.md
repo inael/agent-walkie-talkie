@@ -70,13 +70,24 @@ Project A (Claude Code)              Project B (Claude Code)
 
 ---
 
+## Documentation
+
+| Doc | Description |
+|-----|-------------|
+| **[Setup Guide](docs/SETUP_GUIDE.md)** | Step-by-step guide to integrate two new projects |
+| **[Discord Bot Setup](docs/DISCORD_BOT_SETUP.md)** | How to create, configure, and use the Discord bot |
+| **[MCP Tools Reference](docs/MCP_TOOLS_REFERENCE.md)** | Complete reference for all 7 MCP tools |
+| **[Example Contract](contracts/freelanceia-itbooster.md)** | Real contract auto-generated from a 4-round conversation |
+
+---
+
 ## Quick Start
 
 ### Prerequisites
 
 - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) with active subscription
 - Redis running locally (port 6379)
-- Discord bot token (for Discord integration)
+- Discord bot token (for Discord integration — see [Discord Bot Setup](docs/DISCORD_BOT_SETUP.md))
 
 ### Install
 
@@ -84,6 +95,7 @@ Project A (Claude Code)              Project B (Claude Code)
 git clone https://github.com/inael/agent-walkie-talkie.git
 cd agent-walkie-talkie
 npm install
+npm run build
 ```
 
 ### Register in your projects
@@ -106,14 +118,21 @@ Add to each project's `.claude/settings.json`:
 }
 ```
 
-### Start the worker
+> For the full setup walkthrough with troubleshooting, see **[Setup Guide](docs/SETUP_GUIDE.md)**.
+
+### Start the services
 
 ```bash
-# With Docker
+# All services together (worker + discord + web)
+npm run start
+
+# Or with Docker
 docker compose up -d
 
-# Or directly
-npm run worker
+# Or individually for debugging
+npm run worker    # orchestrator daemon
+npm run discord   # discord bot
+npm run web       # web UI at localhost:3210
 ```
 
 ### Start a conversation
@@ -125,11 +144,13 @@ In Claude Code (Project A):
 
 Claude will use the MCP tools:
 ```
+wt_register(description: "My project")
 wt_start(to: "project-b", subject: "API Integration", max_rounds: 10)
-wt_send(conversation: "api-integration", body: "Here's what I need...")
 ```
 
 Then sit back and watch on Discord.
+
+> For the complete tool reference, see **[MCP Tools Reference](docs/MCP_TOOLS_REFERENCE.md)**.
 
 ---
 
@@ -199,15 +220,18 @@ agent-walkie-talkie/
 ## Roadmap
 
 - [x] Core concept & architecture
-- [ ] MCP Server with basic tools
-- [ ] Redis Streams communication
-- [ ] Worker daemon with claude -p
-- [ ] Discord bot (standalone, reusable)
-- [ ] Web UI (real-time chat)
-- [ ] CONTRACT.md auto-generation
+- [x] MCP Server with 7 tools
+- [x] Redis Streams communication
+- [x] Worker daemon with claude -p
+- [x] Discord bot (standalone, threads + reactions)
+- [x] Web UI (real-time WebSocket chat)
+- [x] CONTRACT.md auto-generation
+- [x] Full documentation (setup, discord, tools reference)
 - [ ] npm package for easy installation
 - [ ] Multi-model support (not just Claude)
 - [ ] Conversation templates (API design, migration, etc.)
+- [ ] Persistent conversation history (survive Redis restart)
+- [ ] Webhook notifications (beyond Discord)
 
 ---
 

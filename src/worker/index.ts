@@ -160,19 +160,63 @@ async function collectConversationHistory(convId: string, participants: [string,
   return messages.sort((a, b) => a.round - b.round);
 }
 
+async function generateSummary(contractText: string, conv: WTConversation): Promise<string> {
+  const prompt = `Resuma em português brasileiro a conversa abaixo entre "${conv.participants[0]}" e "${conv.participants[1]}" sobre "${conv.subject}".
+
+O resumo deve ter:
+1. **O que foi decidido** (bullets curtos)
+2. **O que cada lado vai implementar** (bullets curtos)
+3. **Pendências ou riscos** (se houver)
+
+Seja direto, máximo 15 linhas. Sem saudações, sem introdução.
+
+## Conversa completa:
+${contractText}`;
+
+  try {
+    // Use any project path just to run claude -p for summarization
+    const result = await spawnClaude(process.cwd(), prompt);
+    return result;
+  } catch {
+    // Fallback: extract last agreement message
+    return 'Resumo indisponível — veja a conversa completa acima.';
+  }
+}
+
 async function triggerImplementation(conv: WTConversation, convId: string, logPrefix: string): Promise<void> {
+  // Collect full conversation history as contract
+  const messages = await collectConversationHistory(convId, conv.participants);
+  const contractText = messages.map(m =>
+    `### Round ${m.round} — ${m.from} (${m.type})\n${m.body}`
+  ).join('\n\n---\n\n');
+
+  // Generate and post executive summary
+  console.log(`${logPrefix} 📋 Generating executive summary...`);
+  const summary = await generateSummary(contractText, conv);
+  console.log(`${logPrefix} 📋 Summary generated (${summary.length} chars)`);
+
+  // Post summary to both streams (will appear in Discord thread)
+  const summaryMsg: WTMessage = {
+    id: `msg-summary-${Date.now().toString(36)}`,
+    conversationId: convId,
+    from: 'walkietalkie-system',
+    to: conv.participants[0],
+    type: 'delivered',
+    subject: `📋 Resumo — ${conv.subject}`,
+    body: `📋 **RESUMO EXECUTIVO**\n\n${summary}`,
+    round: conv.currentRound + 1,
+    timestamp: new Date().toISOString(),
+  };
+  for (const pid of conv.participants) {
+    await redis.xadd(REDIS_KEYS.stream(pid), '*', 'message', JSON.stringify({ ...summaryMsg, to: pid }));
+  }
+
   console.log(`${logPrefix} 🚀 Starting post-agreement implementation phase...`);
 
   // Update status
   conv.status = 'implementing';
   conv.updatedAt = new Date().toISOString();
   await redis.hset(REDIS_KEYS.conversations, convId, JSON.stringify(conv));
-
-  // Collect full conversation history as contract
-  const messages = await collectConversationHistory(convId, conv.participants);
-  const contractText = messages.map(m =>
-    `### Round ${m.round} — ${m.from} (${m.type})\n${m.body}`
-  ).join('\n\n---\n\n');
 
   // Get both projects
   const projects: WTProject[] = [];
