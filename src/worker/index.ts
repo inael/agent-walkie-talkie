@@ -305,7 +305,15 @@ ${contractText}
 - NÃO implemente o lado do outro projeto.
 - NÃO faça refactor além do necessário.
 - NÃO crie arquivos de plano — implemente direto.
-- Se algo estiver ambíguo no contrato, escolha a opção mais simples.`;
+- Se algo estiver ambíguo no contrato, escolha a opção mais simples.
+
+## PROIBIDO MODIFICAR (exclusion list)
+- NÃO toque em .claude/ (commands, settings, configs)
+- NÃO toque em CLAUDE.md
+- NÃO delete arquivos que não sejam diretamente relacionados à implementação
+- NÃO modifique .gitignore, .env (apenas .env.example)
+- NÃO modifique package.json a menos que precise adicionar uma dependência
+- Se precisar atualizar docs/context/, APENAS adicione informação — nunca delete conteúdo existente`;
 
   const result = await spawnClaudeImplement(project.path, prompt);
   console.log(`${logPrefix} ✅ "${project.id}" implementation done (${result.length} chars)`);

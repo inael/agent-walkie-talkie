@@ -59,7 +59,15 @@ ${contract}
 - NÃO faça refactor além do necessário.
 - NÃO crie arquivos de plano — implemente direto.
 - Se algo estiver ambíguo, escolha a opção mais simples.
-- Se precisar de uma variável de ambiente nova, documente no .env.example.`;
+- Se precisar de uma variável de ambiente nova, documente no .env.example.
+
+## PROIBIDO MODIFICAR (exclusion list)
+- NÃO toque em .claude/ (commands, settings, configs)
+- NÃO toque em CLAUDE.md
+- NÃO delete arquivos que não sejam diretamente relacionados à implementação
+- NÃO modifique .gitignore, .env (apenas .env.example)
+- NÃO modifique package.json a menos que precise adicionar uma dependência
+- Se precisar atualizar docs/context/, APENAS adicione informação — nunca delete conteúdo existente`;
 
       const result = await spawnClaudeImplement(project.path, prompt);
       console.log(`✅ [${project.id}] Done (${result.length} chars)`);
