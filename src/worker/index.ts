@@ -313,7 +313,10 @@ ${contractText}
 - NÃO delete arquivos que não sejam diretamente relacionados à implementação
 - NÃO modifique .gitignore, .env (apenas .env.example)
 - NÃO modifique package.json a menos que precise adicionar uma dependência
-- Se precisar atualizar docs/context/, APENAS adicione informação — nunca delete conteúdo existente`;
+- Se precisar atualizar docs/context/, APENAS adicione informação — nunca delete conteúdo existente
+- NÃO toque em arquivos de banco de dados (*.sqlite, *.db, *.sqlite3)
+- NÃO rode migrations, seeds, ou resets de banco
+- NÃO execute comandos destrutivos (DROP, TRUNCATE, DELETE sem WHERE)`;
 
   const result = await spawnClaudeImplement(project.path, prompt);
   console.log(`${logPrefix} ✅ "${project.id}" implementation done (${result.length} chars)`);
