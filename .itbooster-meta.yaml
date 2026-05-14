@@ -1,0 +1,32 @@
+# .itbooster-meta.yaml — metadata do projeto pro catálogo IT Booster.
+# Schema completo: tools/catalog/schema-meta.json no monorepo ItBoosterEmpresa.
+# Action diária em ItBoosterEmpresa lê este arquivo e atualiza docs/catalogo/.
+
+# === Obrigatórios ===
+slug: agent-walkie-talkie
+nome: Walkie-Talkie
+tipo: interno
+status: dev
+
+# === Recomendados ===
+descricao: TODO — descrever em 1 linha o que Walkie-Talkie faz.
+stack:
+  - nextjs
+  - fastify
+  - supabase
+# deploys: { app: 'https://...' }   # preencher
+
+# === Opcionais ===
+# cliente: Nome do Cliente Externo   # apenas se tipo=cliente
+# responsavel: inael
+# criado_em: 2026-05-14
+# landing_de: produto-pai             # apenas se tipo=landing
+
+# Integrações com outros projetos IT Booster (slugs) ou serviços externos:
+# integracoes:
+#   - alvo: simplesmail
+#     tipo: emite                 # consome | emite | bidirecional | shadow
+#     descricao: Envia transacionais via SimplesMail API
+#   - alvo: asaas
+#     tipo: consome
+#     descricao: Gateway de cobrança
